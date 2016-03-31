@@ -1,0 +1,22 @@
+#!nsh
+#
+# @name Coaxial Rotor
+#
+# @type Coaxial Helicopter
+# 
+# @output MAIN1 Upper Motor (CCW) 
+# @output MAIN2 Upper Motor (CW) 
+# @output MAIN5 Control Surface 1
+# @output MAIN6 Control Surface 2
+# @output MAIN7 Control Surface 3
+# @output MAIN8 Control Surface 4
+#
+# @maintainer Aubrey Clausse
+#
+
+set VEHICLE_TYPE mc
+
+set MIXER coax_rotor
+# use PWM parameters for throttle channe
+
+
