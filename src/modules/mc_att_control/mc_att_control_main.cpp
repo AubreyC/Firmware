@@ -91,6 +91,8 @@
 #include <lib/geo/geo.h>
 #include <lib/tailsitter_recovery/tailsitter_recovery.h>
 
+#include <mathlib/math/filter/LowPassFilter2p.hpp>
+
 /**
  * Multicopter attitude control app start / stop handling function
  *
@@ -230,6 +232,13 @@ private:
 	TailsitterRecovery *_ts_opt_recovery;	/**< Computes optimal rates for tailsitter recovery */
 
 	/**
+	 * Low Pass Filter for control surfaces
+	 */
+
+	math::LowPassFilter2p _lowPassControlSurfaces0;
+	math::LowPassFilter2p _lowPassControlSurfaces1;
+	math::LowPassFilter2p _lowPassControlSurfaces2;
+	/**
 	 * Update our local parameter cache.
 	 */
 	int			parameters_update();
@@ -327,7 +336,12 @@ MulticopterAttitudeControl::MulticopterAttitudeControl() :
 	/* performance counters */
 	_loop_perf(perf_alloc(PC_ELAPSED, "mc_att_control")),
 	_controller_latency_perf(perf_alloc_once(PC_ELAPSED, "ctrl_latency")),
-	_ts_opt_recovery(nullptr)
+	_ts_opt_recovery(nullptr),
+
+	/* fetch initial parameter values */
+	_lowPassControlSurfaces0(250.0f, 8.f),
+	_lowPassControlSurfaces1(250.0f, 8.f),
+	_lowPassControlSurfaces2(250.0f, 8.f)
 
 {
 	memset(&_ctrl_state, 0, sizeof(_ctrl_state));
@@ -408,6 +422,8 @@ MulticopterAttitudeControl::MulticopterAttitudeControl() :
 		// the vehicle is a tailsitter, use optimal recovery control strategy
 		_ts_opt_recovery = new TailsitterRecovery();
 	}
+
+
 
 
 }
@@ -795,6 +811,20 @@ MulticopterAttitudeControl::control_attitude_rates(float dt)
 			}
 		}
 	}
+
+	//PX4_INFO("_att_control %8.4f %8.4f %8.4f  \n",(double) _att_control(0),(double) _att_control(1),(double) _att_control(2));
+
+
+	//Apply LowPass Filter
+	_att_control(0) = _lowPassControlSurfaces0.apply(_att_control(0));
+	_att_control(1) = _lowPassControlSurfaces1.apply(_att_control(1));
+	_att_control(2) = _lowPassControlSurfaces2.apply(_att_control(2));
+
+	//No control 
+	//_att_control(0) = 0; 
+	//_att_control(1) = 0; 
+	//_att_control(2) = 0; 
+
 }
 
 void
@@ -854,6 +884,8 @@ MulticopterAttitudeControl::task_main()
 			static uint64_t last_run = 0;
 			float dt = (hrt_absolute_time() - last_run) / 1000000.0f;
 			last_run = hrt_absolute_time();
+			
+			//printf("dt:%8.4f \n",(double) dt);
 
 			/* guard against too small (< 2ms) and too large (> 20ms) dt's */
 			if (dt < 0.002f) {
@@ -863,7 +895,7 @@ MulticopterAttitudeControl::task_main()
 				dt = 0.02f;
 			}
 
-			/* copy attitude and control state topics */
+						/* copy attitude and control state topics */
 			orb_copy(ORB_ID(control_state), _ctrl_state_sub, &_ctrl_state);
 
 			/* check for updates in other topics */
